@@ -12,7 +12,8 @@ li { margin-bottom: 4px; }
 </head>
 <body>
 <h1>NursecredX NFT Dashboard</h1>
-<p>API URL: <input type="text" id="apiBase" value="" placeholder="https://your-backend.onrender.com" style="width:300px;" /></p>
+<p>API URL: <input type="text" id="apiBase" value="" placeholder="https://your-backend.onrender.com" style="width:300px;" />
+<br />API key (optional): <input type="password" id="apiKey" placeholder="Your API key" style="width:200px;" /></p>
 <h2>Mint NFT</h2>
 <input id="uri" placeholder="Metadata URI" style="width:300px;" />
 <input id="taxon" type="number" placeholder="Taxon" />
@@ -32,17 +33,20 @@ li { margin-bottom: 4px; }
 <script>
 async function mintNFT() {
   const base = document.getElementById('apiBase').value;
+  const apiKey = document.getElementById('apiKey').value;
   const uri = document.getElementById('uri').value;
   const taxon = parseInt(document.getElementById('taxon').value) || 0;
   const transferFee = parseInt(document.getElementById('transferFee').value) || 0;
   document.getElementById('message').textContent = 'Minting…';
   try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (apiKey) headers['x-api-key'] = apiKey;
     const res = await fetch(base + '/mint', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: headers,
       body: JSON.stringify({ uri, taxon, transferFee })
     });
-    const data = await res.json();
+    await res.json();
     document.getElementById('message').textContent = 'Minted';
     document.getElementById('uri').value = '';
     getNFTs();
@@ -64,7 +68,8 @@ async function getNFTs() {
       const li = document.createElement('li');
       const uriHex = nft.URI || '';
       const uriStr = uriHex ? hexToString(uriHex) : '';
-      li.textContent = nft.NFTokenID + ' – URI: ' + uriStr;
+      li.innerHTML = `<span>${nft.NFTokenID} – URI: ${uriStr}</span> ` +
+                     `<button onclick="showQR('${nft.NFTokenID}')">QR</button>`;
       list.appendChild(li);
     });
     document.getElementById('message').textContent = 'NFTs loaded';
@@ -75,15 +80,18 @@ async function getNFTs() {
 
 async function burnNFT() {
   const base = document.getElementById('apiBase').value;
+  const apiKey = document.getElementById('apiKey').value;
   const tokenId = document.getElementById('burnId').value;
   document.getElementById('message').textContent = 'Burning…';
   try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (apiKey) headers['x-api-key'] = apiKey;
     const res = await fetch(base + '/burn', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: headers,
       body: JSON.stringify({ tokenId })
     });
-    const data = await res.json();
+    await res.json();
     document.getElementById('message').textContent = 'Burned';
     document.getElementById('burnId').value = '';
     getNFTs();
@@ -94,6 +102,12 @@ async function burnNFT() {
 
 function hexToString(hex) {
   return decodeURIComponent(hex.replace(/(..)/g, '%$1'));
+}
+
+function showQR(tokenId) {
+  const base = document.getElementById('apiBase').value;
+  const url = `${base}/qr/${tokenId}`;
+  window.open(url, '_blank');
 }
 </script>
 </body>
