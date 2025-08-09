@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NursecredX NFT Dashboard</title>
+<style>
+body { font-family: Arial, sans-serif; padding: 20px; }
+input, button { margin: 5px; }
+ul { list-style-type: none; padding-left: 0; }
+li { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<h1>NursecredX NFT Dashboard</h1>
+<p>API URL: <input type="text" id="apiBase" value="" placeholder="https://your-backend.onrender.com" style="width:300px;" /></p>
+<h2>Mint NFT</h2>
+<input id="uri" placeholder="Metadata URI" style="width:300px;" />
+<input id="taxon" type="number" placeholder="Taxon" />
+<input id="transferFee" type="number" placeholder="Transfer Fee (0–50000)" />
+<button onclick="mintNFT()">Mint</button>
+
+<h2>Existing NFTs</h2>
+<button onclick="getNFTs()">Refresh</button>
+<ul id="nftList"></ul>
+
+<h2>Burn NFT</h2>
+<input id="burnId" placeholder="NFTokenID" style="width:300px;" />
+<button onclick="burnNFT()">Burn</button>
+
+<p id="message"></p>
+
+<script>
+async function mintNFT() {
+  const base = document.getElementById('apiBase').value;
+  const uri = document.getElementById('uri').value;
+  const taxon = parseInt(document.getElementById('taxon').value) || 0;
+  const transferFee = parseInt(document.getElementById('transferFee').value) || 0;
+  document.getElementById('message').textContent = 'Minting…';
+  try {
+    const res = await fetch(base + '/mint', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uri, taxon, transferFee })
+    });
+    const data = await res.json();
+    document.getElementById('message').textContent = 'Minted';
+    document.getElementById('uri').value = '';
+    getNFTs();
+  } catch (e) {
+    document.getElementById('message').textContent = 'Mint error: ' + e.message;
+  }
+}
+
+async function getNFTs() {
+  const base = document.getElementById('apiBase').value;
+  document.getElementById('message').textContent = 'Loading NFTs…';
+  try {
+    const res = await fetch(base + '/nfts');
+    const data = await res.json();
+    const list = document.getElementById('nftList');
+    list.innerHTML = '';
+    const nfts = data.result?.account_nfts || data.account_nfts || [];
+    nfts.forEach(nft => {
+      const li = document.createElement('li');
+      const uriHex = nft.URI || '';
+      const uriStr = uriHex ? hexToString(uriHex) : '';
+      li.textContent = nft.NFTokenID + ' – URI: ' + uriStr;
+      list.appendChild(li);
+    });
+    document.getElementById('message').textContent = 'NFTs loaded';
+  } catch (e) {
+    document.getElementById('message').textContent = 'Error fetching NFTs: ' + e.message;
+  }
+}
+
+async function burnNFT() {
+  const base = document.getElementById('apiBase').value;
+  const tokenId = document.getElementById('burnId').value;
+  document.getElementById('message').textContent = 'Burning…';
+  try {
+    const res = await fetch(base + '/burn', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tokenId })
+    });
+    const data = await res.json();
+    document.getElementById('message').textContent = 'Burned';
+    document.getElementById('burnId').value = '';
+    getNFTs();
+  } catch (e) {
+    document.getElementById('message').textContent = 'Burn error: ' + e.message;
+  }
+}
+
+function hexToString(hex) {
+  return decodeURIComponent(hex.replace(/(..)/g, '%$1'));
+}
+</script>
+</body>
+</html>
