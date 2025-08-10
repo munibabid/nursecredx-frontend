@@ -110,5 +110,33 @@ function showQR(tokenId) {
   window.open(url, '_blank');
 }
 </script>
+  <script>
+  // Prefill defaults on load + persist last used values
+  window.addEventListener('DOMContentLoaded', () => {
+    const apiInput = document.getElementById('apiBase');
+    const keyInput = document.getElementById('apiKey'); // if present
+
+    // 1) hard default (your Render API)
+    const DEFAULT_API = 'https://nursecredx-backend.onrender.com';
+
+    // 2) allow URL overrides for testing:
+    //    ?api=https://other-api.com  and  ?key=YOURKEY
+    const params = new URLSearchParams(window.location.search);
+    const urlFromQS = params.get('api');
+    const keyFromQS = params.get('key');
+
+    // 3) remember last values (no server secrets; just convenience)
+    const urlFromLS = localStorage.getItem('ncx_api');
+    const keyFromLS = localStorage.getItem('ncx_key');
+
+    // Apply in priority order: querystring > localStorage > default
+    apiInput.value = urlFromQS || urlFromLS || DEFAULT_API;
+    if (keyInput) keyInput.value = keyFromQS || keyFromLS || '';
+
+    // Persist on change
+    apiInput.addEventListener('input', () => localStorage.setItem('ncx_api', apiInput.value));
+    if (keyInput) keyInput.addEventListener('input', () => localStorage.setItem('ncx_key', keyInput.value));
+  });
+</script>
 </body>
 </html>
