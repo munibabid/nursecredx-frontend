@@ -1,0 +1,4 @@
+# Redirect any /nft/... path to the verification page
+/nft/*   /verify.html   200
+# Fallback: serve index.html for all other routes
+/*        /index.html   200
