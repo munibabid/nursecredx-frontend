@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NursecredX NFT Dashboard</title>
+<style>
+body { font-family: Arial, sans-serif; padding: 20px; }
+input, button { margin: 5px; }
+ul { list-style-type: none; padding-left: 0; }
+li { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<h1>NursecredX NFT Dashboard</h1>
+<p>API URL: <input type="text" id="apiBase" value="" placeholder="https://your-backend.onrender.com" style="width:300px;" />
+<br />API key (optional): <input type="password" id="apiKey" placeholder="Your API key" style="width:200px;" /></p>
+<h2>Mint NFT</h2>
+<input id="uri" placeholder="Metadata URI" style="width:300px;" />
+<input id="taxon" type="number" placeholder="Taxon" />
+<input id="transferFee" type="number" placeholder="Transfer Fee (0–50000)" />
+<button onclick="mintNFT()">Mint</button>
+
+<h2>Existing NFTs</h2>
+<button onclick="getNFTs()">Refresh</button>
+<ul id="nftList"></ul>
+
+<h2>Burn NFT</h2>
+<input id="burnId" placeholder="NFTokenID" style="width:300px;" />
+<button onclick="burnNFT()">Burn</button>
+
+<p id="message"></p>
+
+<!-- RN credential portal: create metadata and mint in one step -->
+<h2>RN Credential → NFT</h2>
+<p>Nurse ID: <input id="nurseId"></p>
+<p>Name: <input id="issuedTo"></p>
+<p>License JSON: <textarea id="licenses" rows="3" cols="60">[{"state":"CA","number":"123456","expires":"2026-08-10"}]</textarea></p>
+<p>Certs JSON: <textarea id="certs" rows="3" cols="60">[{"name":"ACLS","expires":"2026-01-01"}]</textarea></p>
+<button onclick="mintFromPortal()">Create Metadata &amp; Mint</button>
+<p id="portalMsg"></p>
+
+<script>
+async function mintNFT() {
+  const base = document.getElementById('apiBase').value;
+  const apiKey = document.getElementById('apiKey').value;
+  const uri = document.getElementById('uri').value;
+  const taxon = parseInt(document.getElementById('taxon').value) || 0;
+  const transferFee = parseInt(document.getElementById('transferFee').value) || 0;
+  document.getElementById('message').textContent = 'Minting…';
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (apiKey) headers['x-api-key'] = apiKey;
+    const res = await fetch(base + '/mint', {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({ uri, taxon, transferFee })
+    });
+    const data = await res.json();
+    document.getElementById('message').textContent = 'Minted';
+    document.getElementById('uri').value = '';
+    getNFTs();
+  } catch (e) {
+    document.getElementById('message').textContent = 'Mint error: ' + e.message;
+  }
+}
+
+async function getNFTs() {
+  const base = document.getElementById('apiBase').value;
+  document.getElementById('message').textContent = 'Loading NFTs…';
+  try {
+    const res = await fetch(base + '/nfts');
+    const data = await res.json();
+    const list = document.getElementById('nftList');
+    list.innerHTML = '';
+    const nfts = data.result?.account_nfts || data.account_nfts || [];
+    nfts.forEach(nft => {
+      const li = document.createElement('li');
+      const uriHex = nft.URI || '';
+      const uriStr = uriHex ? hexToString(uriHex) : '';
+      // Build display: token ID, URI and a QR button
+      li.innerHTML = `<span>${nft.NFTokenID} – URI: ${uriStr}</span> ` +
+                     `<button onclick="showQR('${nft.NFTokenID}')">QR</button>`;
+      list.appendChild(li);
+    });
+    document.getElementById('message').textContent = 'NFTs loaded';
+  } catch (e) {
+    document.getElementById('message').textContent = 'Error fetching NFTs: ' + e.message;
+  }
+}
+
+async function burnNFT() {
+  const base = document.getElementById('apiBase').value;
+  const apiKey = document.getElementById('apiKey').value;
+  const tokenId = document.getElementById('burnId').value;
+  document.getElementById('message').textContent = 'Burning…';
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (apiKey) headers['x-api-key'] = apiKey;
+    const res = await fetch(base + '/burn', {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({ tokenId })
+    });
+    const data = await res.json();
+    document.getElementById('message').textContent = 'Burned';
+    document.getElementById('burnId').value = '';
+    getNFTs();
+  } catch (e) {
+    document.getElementById('message').textContent = 'Burn error: ' + e.message;
+  }
+}
+
+function hexToString(hex) {
+  return decodeURIComponent(hex.replace(/(..)/g, '%$1'));
+}
+
+// Show the QR code for a given NFT by opening a new tab to the QR endpoint.
+function showQR(tokenId) {
+  const base = document.getElementById('apiBase').value;
+  const url = `${base}/qr/${tokenId}`;
+  window.open(url, '_blank');
+}
+
+// Create metadata from RN details then mint NFT. Requires API key if configured on server.
+async function mintFromPortal(){
+  const base = document.getElementById('apiBase').value;
+  const apiKey = document.getElementById('apiKey').value || '';
+  const nurseId = document.getElementById('nurseId').value;
+  const issuedTo = document.getElementById('issuedTo').value;
+  let licenses = [];
+  let certs = [];
+  try { licenses = JSON.parse(document.getElementById('licenses').value || '[]'); } catch (_) { licenses = []; }
+  try { certs = JSON.parse(document.getElementById('certs').value || '[]'); } catch (_) { certs = []; }
+  const portalMsg = document.getElementById('portalMsg');
+  portalMsg.textContent = 'Creating metadata…';
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (apiKey) headers['x-api-key'] = apiKey;
+    const metaResp = await fetch(base + '/metadata', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ nurseId, issuedTo, licenses, certs })
+    });
+    const metaData = await metaResp.json();
+    if (!metaResp.ok) throw new Error(metaData.error || 'metadata failed');
+    portalMsg.textContent = 'Minting…';
+    const mintResp = await fetch(base + '/mint', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ uri: metaData.uri, taxon: 1 })
+    });
+    const mintData = await mintResp.json();
+    if (!mintResp.ok) throw new Error(mintData.error || 'mint failed');
+    portalMsg.textContent = 'Minted ✓';
+    getNFTs();
+  } catch (e) {
+    portalMsg.textContent = 'Error: ' + e.message;
+  }
+}
+
+// On page load, prefill API base and API key if desired
+window.addEventListener('DOMContentLoaded', () => {
+  const apiBaseInput = document.getElementById('apiBase');
+  const apiKeyInput = document.getElementById('apiKey');
+  if (apiBaseInput && !apiBaseInput.value) {
+    apiBaseInput.value = 'https://nursecredx-backend.onrender.com';
+  }
+  // Prefill API key for test/demo purposes. Remove or comment out for production use.
+  if (apiKeyInput && !apiKeyInput.value) {
+    apiKeyInput.value = 'welcometoparadise';
+  }
+});
+</script>
+</body>
+</html>
